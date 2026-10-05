@@ -9,3 +9,6 @@ scenes/**/*-first-frame.png
 scenes/**/cues.json
 kit/audio/wav/
 __pycache__/
+
+# scratch scenes for testing the studio
+scenes/_*/
