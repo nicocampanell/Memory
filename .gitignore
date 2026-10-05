@@ -1,0 +1,11 @@
+# renders are rebuilt from code; keep them out of git
+*.mp4
+*.mkv
+scenes/**/still-*.png
+scenes/**/stills.png
+scenes/**/contact.png
+scenes/**/*-phone.png
+scenes/**/*-first-frame.png
+scenes/**/cues.json
+kit/audio/wav/
+__pycache__/

@@ -1,0 +1,52 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Studio smoke test</title>
+<style>
+  html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: #F7F8F6; }
+  #stage { position: absolute; inset: 0; }
+  #pill {
+    position: absolute; left: 960px; top: 540px; background: #15201B; color: #F7F8F6;
+    display: flex; align-items: center; justify-content: center; overflow: hidden; white-space: nowrap;
+    font: 700 56px/1 "DejaVu Sans", sans-serif; letter-spacing: -0.02em;
+  }
+  #label { display: inline-block; }
+</style>
+</head>
+<body>
+<div id="stage"><div id="pill"><span id="label">Studio ready</span></div></div>
+<script src="/studio/lib/motion.js"></script>
+<script>
+  // Smoke test: a dot springs up (0.2s), stretches into a pill (0.75s), the label
+  // rises in, and a test beep sounds at exactly 1.0s.
+  const T = { up: 0.2, stretch: 0.75, label: 0.95, beep: 1.0 };
+  const DOT = 64, PILL_W = 520, PILL_H = 120;
+
+  window.SCENE = {
+    duration: 3,
+    fps: 60,
+    // 8 samples while the pill stretches fast, 4 elsewhere
+    subframes: (t) => (t > T.stretch - 0.05 && t < T.stretch + 0.45 ? 8 : 4),
+    cues: [{ t: T.beep, file: 'scenes/00-smoke/test-beep.wav', align: 'onset' }],
+  };
+
+  const pill = document.getElementById('pill');
+  const label = document.getElementById('label');
+
+  window.seek = (t) => {
+    const s = M.spring(t, T.up, { freq: 2.6, damping: 0.6 });         // dot scale 0 -> 1 with overshoot
+    const w = M.lerp(DOT, PILL_W, M.spring(t, T.stretch, { freq: 1.8, damping: 0.78 }));
+    const h = M.lerp(DOT, PILL_H, M.spring(t, T.stretch, { freq: 1.8, damping: 0.85 }));
+    pill.style.width = w + 'px';
+    pill.style.height = h + 'px';
+    pill.style.borderRadius = h / 2 + 'px';
+    pill.style.transform = `translate(-50%, -50%) scale(${s})`;
+    const r = M.rise(t, T.label, 70);
+    label.style.transform = `translateY(${r}px)`;
+    label.style.opacity = t < T.label ? 0 : 1;   // hidden until it starts rising; the pill clips it
+  };
+  window.seek(0);
+</script>
+</body>
+</html>
