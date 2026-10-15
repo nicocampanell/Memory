@@ -1,0 +1,42 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Nerava: app splash on a phone</title>
+<style>
+  html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: #E9E8E2; }
+  /* a plain phone: dark body, rounded screen, an island. Screen is 1080x1920 scaled to 0.47 */
+</style>
+</head>
+<body>
+<div id="device"></div>
+<script src="/studio/lib/motion.js"></script>
+<script src="../logo/glyphs.js"></script>
+<script src="../logo/stage.js"></script>
+<script src="../5-app-splash/timeline.js"></script>
+<script src="../5-app-splash/splash.js"></script>
+<script>
+  // Showcase: the same splash, playing on a phone in a 1920x1080 frame.
+  const K = 0.47, SW = 1080 * K, SH = 1920 * K, BEZEL = 14, R = 66;
+  const dev = document.getElementById('device');
+  dev.style.cssText = `position:absolute;left:${960 - SW / 2 - BEZEL}px;top:${540 - SH / 2 - BEZEL}px;width:${SW + 2 * BEZEL}px;height:${SH + 2 * BEZEL}px;` +
+    `border-radius:${R + BEZEL}px;background:#101114;box-shadow:0 40px 80px rgba(11,16,32,.18),0 8px 20px rgba(11,16,32,.10),inset 0 0 0 2px #2A2C31`;
+  const glass = document.createElement('div');
+  glass.style.cssText = `position:absolute;left:${BEZEL}px;top:${BEZEL}px;width:${SW}px;height:${SH}px;border-radius:${R}px;overflow:hidden;`;
+  dev.appendChild(glass);
+  const screen = document.createElement('div');
+  screen.style.cssText = `position:absolute;left:0;top:0;transform-origin:0 0;transform:scale(${K})`;
+  glass.appendChild(screen);
+  const island = document.createElement('div');
+  island.style.cssText = `position:absolute;left:${SW / 2 - 58}px;top:14px;width:116px;height:34px;border-radius:17px;background:#000`;
+  glass.appendChild(island);
+
+  const inner = document.createElement('div');
+  screen.appendChild(inner);
+  const app = nervaSplash(inner);
+  window.SCENE = { duration: T.end, subframes: (t) => (t > T.charge && t < app.RING + 0.6 ? 8 : 4) };
+  window.seek = app.seek;
+  window.seek(0);
+</script>
+</body>
+</html>

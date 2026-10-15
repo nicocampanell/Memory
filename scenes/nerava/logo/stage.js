@@ -9,8 +9,6 @@
   const NS = 'http://www.w3.org/2000/svg';
   const G = window.NERAVA_GLYPHS;
   const [bx0, by0, bx1, by1] = G.bbox;
-  const TX = W / 2 - ((bx0 + bx1) / 2) * SCALE;
-  const TY = H / 2 - ((by0 + by1) / 2) * SCALE;
 
   const el = (tag, attrs = {}, parent) => {
     const e = document.createElementNS(NS, tag);
@@ -24,11 +22,14 @@
     return `translate(${x} ${y}) translate(${ox} ${oy}) rotate(${r}) scale(${s * sx} ${s * sy}) translate(${-ox} ${-oy})`;
   }
 
-  function build(host) {
-    host.style.cssText = `position:absolute;left:0;top:0;width:${W}px;height:${H}px`;
-    const svg = el('svg', { width: W, height: H, viewBox: `0 0 ${W} ${H}` }, host);
+  // opts: {w, h, scale} for frames other than 1920x1080 (the logo stays centred)
+  function build(host, { w = W, h = H, scale = SCALE } = {}) {
+    const tx = w / 2 - ((bx0 + bx1) / 2) * scale;
+    const ty = h / 2 - ((by0 + by1) / 2) * scale;
+    host.style.cssText = `position:absolute;left:0;top:0;width:${w}px;height:${h}px`;
+    const svg = el('svg', { width: w, height: h, viewBox: `0 0 ${w} ${h}` }, host);
     const defs = el('defs', {}, svg);
-    const world = el('g', { transform: `translate(${TX} ${TY}) scale(${SCALE})` }, svg);
+    const world = el('g', { transform: `translate(${tx} ${ty}) scale(${scale})` }, svg);
     const make = (g, parent) => {
       const wrap = el('g', {}, parent);
       const inner = el('g', {}, wrap);

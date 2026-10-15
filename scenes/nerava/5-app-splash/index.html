@@ -1,0 +1,28 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Nerava: app splash</title>
+<style>
+  html, body { margin: 0; width: 1080px; height: 1920px; overflow: hidden; background: #F7F6F1; }
+</style>
+</head>
+<body>
+<div id="screen"></div>
+<script src="/studio/lib/motion.js"></script>
+<script src="../logo/glyphs.js"></script>
+<script src="../logo/stage.js"></script>
+<script src="timeline.js"></script>
+<script src="splash.js"></script>
+<script>
+  // Full-screen portrait splash, 1080x1920: what the app itself would show on launch.
+  const app = nervaSplash(document.getElementById('screen'));
+  window.SCENE = {
+    duration: T.end, width: 1080, height: 1920,
+    subframes: (t) => (t > T.charge && t < app.RING + 0.6 ? 8 : 4),
+  };
+  window.seek = app.seek;
+  window.seek(0);
+</script>
+</body>
+</html>
