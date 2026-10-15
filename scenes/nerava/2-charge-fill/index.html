@@ -1,0 +1,93 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Nerava: charge fill</title>
+<style>
+  html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: #F7F6F1; }
+</style>
+</head>
+<body>
+<div id="cam"></div>
+<script src="/studio/lib/motion.js"></script>
+<script src="../logo/glyphs.js"></script>
+<script src="../logo/stage.js"></script>
+<script src="timeline.js"></script>
+<script>
+  // Outlines draw on. A blue front sweeps through the letters like a battery filling,
+  // leaving ink behind it. When it reaches the bolt, the bolt fires and the word kicks back.
+  const S = NV.build(document.getElementById('cam'));
+  const { bolt, letters } = S;
+  const glyphs = [...letters, bolt];
+  const X0 = 100, X1 = 780, TAIL = 110;      // front travels X0 -> X1 (source px); ink follows TAIL behind
+  const BOLT_X = 590;                         // front position that fires the bolt
+  const BCX = 615, BCY = 140;
+
+  const front = (t) => M.lerp(X0, X1, M.prog(t, T.charge, T.charge + T.chargeDur, M.ease.inOut));
+  // solve when the front reaches the bolt (bisection on a pure function)
+  let lo = T.charge, hi = T.charge + T.chargeDur;
+  for (let i = 0; i < 40; i++) { const m = (lo + hi) / 2; if (front(m) < BOLT_X) lo = m; else hi = m; }
+  const FIRE = hi;
+
+  window.SCENE = {
+    duration: T.end,
+    subframes: (t) => (t > T.charge && t < FIRE + 0.4 ? 8 : 4),
+  };
+
+  // one gradient on every letter: ink | blue at the front | nothing ahead of it, slanted like the bolt
+  const grad = S.el('linearGradient', { id: 'charge', gradientUnits: 'userSpaceOnUse', x1: X0, y1: 0, x2: X1, y2: 0,
+    gradientTransform: `translate(0 140) skewX(${-Math.atan(NV.SLANT) * 180 / Math.PI}) translate(0 -140)` }, S.defs);
+  const stops = [0, 1, 2, 3].map(() => S.el('stop', {}, grad));
+  glyphs.forEach((g) => {
+    g.len = g.path.getTotalLength();
+    g.path.setAttribute('stroke', NV.C.ink);
+    g.path.setAttribute('stroke-width', 1.1);
+    g.path.setAttribute('stroke-dasharray', `${g.len} ${g.len}`);
+  });
+  letters.forEach((L) => L.path.setAttribute('fill', 'url(#charge)'));
+
+  window.seek = (t) => {
+    // --- outline draw-on, staggered, then fades once filled
+    glyphs.forEach((g, i) => {
+      const p = M.prog(t, T.draw + i * 0.07, T.draw + i * 0.07 + 0.8, M.ease.inOut);
+      g.path.setAttribute('stroke-dashoffset', g.len * (1 - p));
+      const fade = g === bolt ? M.prog(t, FIRE, FIRE + 0.15) : M.prog(t, T.charge + T.chargeDur - 0.2, T.charge + T.chargeDur + 0.3);
+      g.path.setAttribute('stroke-opacity', 0.32 * (1 - fade));
+      g.path.setAttribute('stroke-width', p >= 1 && fade >= 1 ? 0 : 1.1);
+    });
+
+    // --- the charge front
+    const f = front(t), ink = f - TAIL;
+    const off = (x) => M.clamp((x - X0) / (X1 - X0));
+    const set = (s, x, c, o) => { s.setAttribute('offset', off(x)); s.setAttribute('stop-color', c); s.setAttribute('stop-opacity', o); };
+    set(stops[0], ink, NV.C.ink, 1);
+    set(stops[1], f - 6, NV.C.blue, 1);
+    set(stops[2], f, NV.C.blue, 1);
+    set(stops[3], f + 0.01, NV.C.blue, 0);
+
+    // --- the bolt fires: solid at once, a bright pop that settles, a small twist
+    const on = t >= FIRE;
+    bolt.path.setAttribute('fill-opacity', on ? 1 : 0);
+    const pop = 0.2 * (M.spring(t, FIRE, { freq: 5, damping: 0.6 }) - M.spring(t, FIRE + 0.06, { freq: 2.6, damping: 0.62 }));
+    const twist = -7 * (1 - M.spring(t, FIRE, { freq: 2.4, damping: 0.55 })) * (on ? 1 : 0);
+    bolt.inner.setAttribute('transform', NV.tr({ s: 1 + pop, r: twist, ox: BCX, oy: BCY }));
+    const glow = on ? Math.exp(-(t - FIRE) * 7) : 0;
+    bolt.path.setAttribute('fill', mix(NV.C.blue, '#DCEBFF', 0.8 * glow));
+
+    // --- the word kicks back a few px from the release, then settles
+    const kick = -3.5 * (M.spring(t, FIRE, { freq: 7, damping: 0.7 }) - M.spring(t, FIRE + 0.05, { freq: 2.8, damping: 0.7 }));
+    S.lettersG.setAttribute('transform', NV.tr({ x: kick }));
+
+    // --- camera: one slow push in that lands as the bolt settles
+    const cam = M.camera(t, [{ t: 0, x: 960, y: 540, zoom: 0.93 }, { t: FIRE + 0.5, x: 960, y: 540, zoom: 1, e: M.ease.inOut }]);
+    M.applyCamera(document.getElementById('cam'), cam);
+  };
+
+  function mix(a, b, k) {
+    const h = (s, i) => parseInt(s.slice(1 + 2 * i, 3 + 2 * i), 16);
+    return '#' + [0, 1, 2].map((i) => Math.round(M.lerp(h(a, i), h(b, i), k)).toString(16).padStart(2, '0')).join('');
+  }
+  window.seek(0);
+</script>
+</body>
+</html>

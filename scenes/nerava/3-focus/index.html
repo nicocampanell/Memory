@@ -1,0 +1,75 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Nerava: focus</title>
+<style>
+  html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: #F7F6F1; }
+</style>
+</head>
+<body>
+<div id="cam"></div>
+<script src="/studio/lib/motion.js"></script>
+<script src="../logo/glyphs.js"></script>
+<script src="../logo/stage.js"></script>
+<script src="timeline.js"></script>
+<script>
+  // Letters arrive spread wide and out of focus, centre pair first, and pull together as
+  // they sharpen. Then the word steps left to make room and the bolt snaps in with no blur.
+  const S = NV.build(document.getElementById('cam'));
+  const { bolt, letters, lettersG } = S;
+  const WORD_CX = (122 + 576) / 2;                    // letters alone
+  const LOCK_CX = (122 + 643.6) / 2;                  // letters + bolt
+  const MAKE_ROOM = LOCK_CX - WORD_CX;                // word sits centred until the bolt arrives
+  const SPREAD = 0.42, BLUR0 = 9;                      // start: +42% tracking, 9 source px blur
+  const BCX = 615, BCY = 140;
+  const AXIS = [-NV.SLANT / Math.hypot(1, NV.SLANT), 1 / Math.hypot(1, NV.SLANT)];  // down the bolt's slant
+
+  window.SCENE = {
+    duration: T.end,
+    subframes: (t) => (t > T.bolt - 0.05 && t < T.bolt + 0.3 ? 8 : 4),
+  };
+
+  const rank = letters.map((L) => Math.abs(L.cx - WORD_CX));
+  const order = [...rank].sort((a, b) => a - b);
+  letters.forEach((L, i) => {
+    L.delay = Math.floor(order.indexOf(rank[i]) / 2) * T.stagger;  // pairs: RA, EV, NA
+    const f = S.el('filter', { id: 'blur' + i, x: '-60%', y: '-60%', width: '220%', height: '220%' }, S.defs);
+    L.blur = S.el('feGaussianBlur', { stdDeviation: 0 }, f);
+    L.fid = 'url(#blur' + i + ')';
+  });
+  const clipB = S.el('clipPath', { id: 'clipB', clipPathUnits: 'userSpaceOnUse' }, S.defs);
+  const clipBP = S.el('path', {}, clipB);
+  bolt.path.setAttribute('clip-path', 'url(#clipB)');
+
+  window.seek = (t) => {
+    letters.forEach((L) => {
+      const t0 = T.letters + L.delay;
+      const pos = M.spring(t, t0, { freq: 1.25, damping: 0.86 });
+      const dx = (L.cx - WORD_CX) * SPREAD * (1 - pos);
+      const sd = BLUR0 * (1 - M.prog(t, t0, t0 + 1.0, M.ease.out));
+      const op = M.prog(t, t0, t0 + 0.55, M.ease.out);
+      L.wrap.setAttribute('transform', NV.tr({ x: dx, s: 1 + 0.06 * (1 - pos), ox: L.cx, oy: 137 }));
+      L.blur.setAttribute('stdDeviation', sd);
+      if (sd > 0.01) L.path.setAttribute('filter', L.fid); else L.path.removeAttribute('filter');
+      L.path.setAttribute('fill-opacity', op);
+    });
+    // the word sits centred, then steps left as the bolt arrives
+    const room = MAKE_ROOM * (1 - M.spring(t, T.bolt - 0.08, { freq: 1.7, damping: 0.84 }));
+    lettersG.setAttribute('transform', NV.tr({ x: room }));
+
+    // bolt: a fast strike top to bottom, and a short drop down its own slant with a snap
+    const ks = M.prog(t, T.bolt, T.bolt + 0.12, M.ease.outExpo);
+    const yb = M.lerp(60, 220, ks);
+    clipBP.setAttribute('d', t < T.bolt ? 'M0 0Z' : ks >= 1 ? 'M0 -500H2000V800H0Z' : `M400 -500H900V${yb - 20}L400 ${yb + 20}Z`);
+    const drop = -22 * (1 - M.spring(t, T.bolt, { freq: 2.8, damping: 0.6 }));
+    bolt.wrap.setAttribute('transform', NV.tr({ x: AXIS[0] * drop, y: AXIS[1] * drop }));
+
+    // camera: pull back from 1.08x as the letters find focus
+    const cam = M.camera(t, [{ t: 0, x: 960, y: 540, zoom: 1.08 }, { t: T.letters + 1.6, x: 960, y: 540, zoom: 1, e: M.ease.out }]);
+    M.applyCamera(document.getElementById('cam'), cam);
+  };
+  window.seek(0);
+</script>
+</body>
+</html>

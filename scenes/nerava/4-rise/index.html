@@ -1,0 +1,66 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Nerava: rise</title>
+<style>
+  html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: #F7F6F1; }
+</style>
+</head>
+<body>
+<div id="cam"></div>
+<script src="/studio/lib/motion.js"></script>
+<script src="../logo/glyphs.js"></script>
+<script src="../logo/stage.js"></script>
+<script src="timeline.js"></script>
+<script>
+  // Each letter rises out of an invisible baseline with a small flick of rotation that
+  // settles. The bolt falls in from above along its own slant, squashes on impact, and
+  // the frame takes a small nudge.
+  const S = NV.build(document.getElementById('cam'));
+  const { bolt, letters } = S;
+  const BASE = 181.2, CAP = 94, DROP = 96;            // baseline, cap top, start depth (source px)
+  const FALL = 430;                                   // bolt starts this far up its axis, off frame
+  const AXIS = [-NV.SLANT / Math.hypot(1, NV.SLANT), 1 / Math.hypot(1, NV.SLANT)];
+  const BOLT_FOOT = [611, 203.6];
+  const IMPACT = T.fall + T.fallDur;
+
+  window.SCENE = {
+    duration: T.end,
+    // the fall reaches ~70 px a frame just before impact
+    subframes: (t) => (t > T.fall && t < IMPACT + 0.05 ? 16 : t > T.rise && t < T.rise + 0.6 ? 8 : 4),
+  };
+
+  letters.forEach((L, i) => {
+    const c = S.el('clipPath', { id: 'm' + i, clipPathUnits: 'userSpaceOnUse' }, S.defs);
+    S.el('rect', { x: L.bb.x - 20, y: CAP - 60, width: L.bb.width + 40, height: BASE - CAP + 60 }, c);
+    L.clip = 'url(#m' + i + ')';
+  });
+
+  window.seek = (t) => {
+    letters.forEach((L, i) => {
+      const t0 = T.rise + i * T.stagger;
+      const p = M.spring(t, t0, { freq: 2.2, damping: 0.68 });
+      const r = 9 * (1 - M.spring(t, t0 + 0.02, { freq: 1.9, damping: 0.6 }));
+      L.inner.setAttribute('transform', NV.tr({ y: DROP * (1 - p), r: t < t0 ? 9 : r, ox: L.cx, oy: BASE }));
+      if (t > t0 + 1.2) L.wrap.removeAttribute('clip-path'); else L.wrap.setAttribute('clip-path', L.clip);
+    });
+
+    // bolt: accelerates down its axis (gravity), lands, squashes along the axis and recovers
+    const fp = M.prog(t, T.fall, IMPACT, (p) => p * p);
+    const d = -FALL * (1 - fp);
+    const x = t < IMPACT ? 1 : 0;
+    const k = t < IMPACT ? 0 : t - IMPACT;
+    const squash = t < IMPACT ? 0 : 0.16 * Math.exp(-k * 14) * Math.cos(k * 2 * Math.PI * 4);
+    const stretch = t < IMPACT ? 0.06 * fp : 0;     // a little longer while falling fast
+    bolt.wrap.setAttribute('transform', NV.tr({ x: AXIS[0] * d, y: AXIS[1] * d }));
+    bolt.inner.setAttribute('transform', NV.tr({ sx: 1 + squash * 0.6, sy: 1 - squash + stretch, ox: BOLT_FOOT[0], oy: BOLT_FOOT[1] }));
+
+    // camera: one small damped nudge down on impact
+    const n = t < IMPACT ? 0 : 7 * Math.exp(-k * 9) * Math.sin(k * 2 * Math.PI * 3.2);
+    M.applyCamera(document.getElementById('cam'), { x: 960, y: 540 - n, zoom: 1 });
+  };
+  window.seek(0);
+</script>
+</body>
+</html>

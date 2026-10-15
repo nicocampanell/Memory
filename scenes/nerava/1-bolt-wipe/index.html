@@ -1,0 +1,86 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Nerava: bolt wipe</title>
+<style>
+  html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: #F7F6F1; }
+</style>
+</head>
+<body>
+<div id="cam"></div>
+<script src="/studio/lib/motion.js"></script>
+<script src="../logo/glyphs.js"></script>
+<script src="../logo/stage.js"></script>
+<script src="timeline.js"></script>
+<script>
+  // The bolt strikes on alone in the centre, charges once, pulls back, then shoots to its
+  // place. The wordmark slides out from behind the bolt's slanted left edge as it goes.
+  const S = NV.build(document.getElementById('cam'));
+  const { bolt, letters, lettersG } = S;
+  const BCX = 615, BCY = 140;                 // bolt centre, source px
+  const DX0 = (122 + 643.6) / 2 - BCX;        // bolt starts centred in frame
+  const S0 = 1.5;                             // and larger
+  const WORD0 = 250;                          // wordmark starts this far right, hidden behind the bolt
+
+  const travel = { freq: 1.6, damping: 0.8 };
+  const boltX = (t) => M.springs(t, [
+    { t: 0, v: DX0 },
+    { t: T.ant, v: DX0 - 9, freq: 3, damping: 0.9 },
+    { t: T.go, v: 0, ...travel },
+  ]);
+  const goP = (t) => M.spring(t, T.go, travel);
+
+  window.SCENE = {
+    duration: T.end,
+    // the strike and the travel move 25-30 px a frame
+    subframes: (t) => ((t > T.strike - 0.02 && t < T.strike + 0.25) || (t > T.go - 0.02 && t < T.go + 0.7) ? 8 : 4),
+  };
+
+  // strike: reveal from the top with a slanted bottom edge, parallel to the bolt
+  const clipB = S.el('clipPath', { id: 'clipB', clipPathUnits: 'userSpaceOnUse' }, S.defs);
+  const clipBP = S.el('path', {}, clipB);
+  bolt.path.setAttribute('clip-path', 'url(#clipB)');
+  // wordmark: visible only left of the bolt's moving left edge
+  const clipW = S.el('clipPath', { id: 'clipW', clipPathUnits: 'userSpaceOnUse' }, S.defs);
+  const clipWP = S.el('path', {}, clipW);
+
+  window.seek = (t) => {
+    // --- bolt
+    const p = goP(t);
+    const pulse = 1 + 0.07 * (M.spring(t, T.pulse, { freq: 4, damping: 0.55 }) - M.spring(t, T.pulse + 0.1, { freq: 3, damping: 0.7 }));
+    const scale = Math.exp(Math.log(S0) * (1 - p)) * pulse;
+    const x = boltX(t);
+    // stretch along the travel a little, from the spring's speed (finite difference of a pure function)
+    const v = (boltX(t + 0.004) - boltX(t - 0.004)) / 0.008 * NV.SCALE;   // px/s
+    const st = 1 + 0.1 * M.clamp(Math.abs(v) / 2400);
+    bolt.wrap.setAttribute('transform', NV.tr({ x, s: scale, sx: st, sy: 1 / st, ox: BCX, oy: BCY }));
+    const ks = M.prog(t, T.strike, T.strike + 0.2, M.ease.outExpo);
+    const yb = M.lerp(60, 220, ks);
+    clipBP.setAttribute('d', ks >= 1 ? 'M0 -500H2000V800H0Z' : `M400 -500H900V${yb - 20}L400 ${yb + 20}Z`);
+    // land: a brief lift toward white, decaying
+    const flash = t < T.land ? 0 : 0.35 * Math.exp(-(t - T.land) * 9);
+    bolt.path.setAttribute('fill', mix(NV.C.blue, '#FFFFFF', flash));
+
+    // --- wordmark: each letter slides in a touch after the one to its left
+    letters.forEach((L, i) => {
+      const lx = M.springs(t, [{ t: 0, v: WORD0 }, { t: T.go + 0.03 + i * 0.012, v: 0, freq: 1.5, damping: 0.82 }]);
+      L.wrap.setAttribute('transform', NV.tr({ x: lx }));
+    });
+    // clip edge = the bolt's current left edge, mapped through its transform, 2 px inside it
+    const edge = (y) => BCX + x + scale * (NV.boltEdgeX(y) - BCX) * st - 2;
+    if (t > T.go + 1.4) lettersG.removeAttribute('clip-path');
+    else {
+      lettersG.setAttribute('clip-path', 'url(#clipW)');
+      clipWP.setAttribute('d', `M-500 -500H${edge(-500)}L${edge(800)} 800H-500Z`);
+    }
+  };
+
+  function mix(a, b, k) {
+    const h = (s, i) => parseInt(s.slice(1 + 2 * i, 3 + 2 * i), 16);
+    return '#' + [0, 1, 2].map((i) => Math.round(M.lerp(h(a, i), h(b, i), k)).toString(16).padStart(2, '0')).join('');
+  }
+  window.seek(0);
+</script>
+</body>
+</html>
